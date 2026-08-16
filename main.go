@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"flag"
+	"gfpengine/scanner"
 )
 
 func main() {
@@ -11,6 +12,7 @@ func main() {
 
 	workers := flag.Int("workers", 4, "Number of Workers")
 	output := flag.String("output", "", "output json file")
+	recursive := flag.Bool("r", true, "Recursive scan or not")
 	
 	flag.Parse()
 
@@ -35,4 +37,17 @@ func main() {
 
 	fmt.Println("Number of workers ", *workers)
 	fmt.Println("Ouput json file: ", *output)
+
+	files, err := scanner.Scan(path, *recursive)
+
+	if err!=nil {
+		fmt.Fprintln(os.Stderr, "Scan Failed: ", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Files Found: ", len(files))
+
+	for _,file := range files {
+		fmt.Printf("%s (%d bytes)\n", file.Path, file.Size)
+	}
 }
