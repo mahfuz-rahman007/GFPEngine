@@ -1,10 +1,11 @@
 package main
 
 import (
-	"fmt"
-	"os"
 	"flag"
+	"fmt"
+	"gfpengine/processor"
 	"gfpengine/scanner"
+	"os"
 )
 
 func main() {
@@ -47,7 +48,21 @@ func main() {
 
 	fmt.Println("Files Found: ", len(files))
 
-	for _,file := range files {
-		fmt.Printf("%s (%d bytes)\n", file.Path, file.Size)
+	processors := []processor.Processor{
+		processor.SizeProcessor{},
 	}
+
+	for _,f := range files {
+		for _,p := range processors {
+			result,err := p.Process(f.Path)
+			if err!=nil {
+				fmt.Fprintln(os.Stderr, "Process Failed: ", err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("[%s] %s -> %s\n", p.Name(), f.Path, result)
+		}
+	}
+
+
 }
