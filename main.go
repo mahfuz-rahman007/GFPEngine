@@ -50,6 +50,7 @@ func main() {
 
 	processors := []processor.Processor{
 		processor.SizeProcessor{},
+		processor.HashProcessor{},
 	}
 
 	for _,f := range files {
