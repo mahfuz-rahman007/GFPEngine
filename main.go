@@ -6,6 +6,7 @@ import (
 	"gfpengine/processor"
 	"gfpengine/scanner"
 	"os"
+	"sync"
 )
 
 func main() {
@@ -48,38 +49,12 @@ func main() {
 
 	fmt.Println("Files Found: ", len(files))
 
-	processors := []processor.Processor{
-		processor.SizeProcessor{},
-		processor.HashProcessor{},
-	}
-
-	hashes := make(map[string][]string)
-
-	for _,f := range files {
-		for _,p := range processors {
-			result,err := p.Process(f.Path)
-			if err!=nil {
-				fmt.Fprintln(os.Stderr, "Process Failed: ", err)
-				os.Exit(1)
-			}
-
-			fmt.Printf("[%s] %s -> %s\n", p.Name(), f.Path, result)
-
-			if isHashProcessor(p) {
-				hashes[result] = append(hashes[result], f.Path)
-			}
-		}
-	}
+	hashes := hashConcurrently(files, *workers)
 
 	checkDuplicate(hashes)
 
 }
 
-func isHashProcessor(p processor.Processor) (bool) {
-	_,ok := p.(processor.HashProcessor)
-
-	return ok
-}
 
 func checkDuplicate(hashes map[string][]string) {
 	fmt.Println("---- Checking Duplicates ------")
@@ -93,4 +68,47 @@ func checkDuplicate(hashes map[string][]string) {
 			}
 		}
 	}
+}
+
+func hashConcurrently(files []scanner.FileInfo, workerCount int) map[string][]string {
+	jobs := make(chan string, len(files))
+	results := make(chan [2]string, len(files))
+
+	var wg sync.WaitGroup
+
+	// Start the worker
+	for i:=0; i < workerCount; i++ {
+		wg.Add(1)
+
+		go func ()  {
+			defer wg.Done()
+			hasher := processor.HashProcessor{}
+			for path := range jobs {
+				hash,err := hasher.Process(path)
+				if err!=nil {continue}
+				results <- [2]string{hash, path}
+			}
+		}()
+	}
+
+	// Send All Jobs, then Close So Workers Know No More Coming
+	for _,f := range files {
+		jobs <- f.Path
+	}
+
+	close(jobs)
+
+	// Wait for Workers in a Separate Goroutine, Then Close Results
+	go func ()  {
+		wg.Wait()
+		close(results)	
+	}()
+
+	// Collect
+	hashes := make(map[string][]string)
+	for r := range results {
+		hashes[r[0]] = append(hashes[r[0]], r[1])
+	}
+
+	return  hashes
 }
