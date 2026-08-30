@@ -53,6 +53,8 @@ func main() {
 		processor.HashProcessor{},
 	}
 
+	hashes := make(map[string][]string)
+
 	for _,f := range files {
 		for _,p := range processors {
 			result,err := p.Process(f.Path)
@@ -62,8 +64,33 @@ func main() {
 			}
 
 			fmt.Printf("[%s] %s -> %s\n", p.Name(), f.Path, result)
+
+			if isHashProcessor(p) {
+				hashes[result] = append(hashes[result], f.Path)
+			}
 		}
 	}
 
+	checkDuplicate(hashes)
 
+}
+
+func isHashProcessor(p processor.Processor) (bool) {
+	_,ok := p.(processor.HashProcessor)
+
+	return ok
+}
+
+func checkDuplicate(hashes map[string][]string) {
+	fmt.Println("---- Checking Duplicates ------")
+
+	for hash, paths := range hashes {
+		if len(paths) > 1 {
+			fmt.Printf("%s\n", hash[:12])
+
+			for _,p := range paths {
+				fmt.Printf("  %s\n", p)
+			}
+		}
+	}
 }
